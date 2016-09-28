@@ -2,7 +2,7 @@
 # git tag x.y.z
 # git push --tags
 # python setup.py sdist upload
-from distutils.core import setup
+from setuptools import setup
 setup(name = 'hickle',
       version = '2.1.0',
       description = 'Hickle - a HDF5 based version of pickle',

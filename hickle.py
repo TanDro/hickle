@@ -23,9 +23,11 @@ h5py installed.
 """
 
 import os
+import io
 import numpy as np
 import h5py as h5
 import re
+from past.builtins import long, unicode
 
 try:
     from exceptions import Exception
@@ -145,7 +147,7 @@ def file_opener(f, mode='r', track_times=True):
 
     """
     # Were we handed a file object or just a file name string?
-    if isinstance(f, file):
+    if isinstance(f, io.IOBase):
         filename, mode = f.name, f.mode
         f.close()
         h5f = h5.File(filename, mode)
@@ -310,13 +312,13 @@ def dump(py_obj, file_obj, mode='w', track_times=True, path='/', **kwargs):
         h5f = file_opener(file_obj, mode, track_times)
         h5f.attrs["CLASS"] = 'hickle'
         h5f.attrs["VERSION"] = 3
-        h5f.attrs["type"] = ['hickle']
+        h5f.attrs["type"] = 'hickle'
 
         h_root_group = h5f.get(path)
 
         if h_root_group is None:
             h_root_group = h5f.create_group(path)
-            h_root_group.attrs["type"] = ['hickle']
+            h_root_group.attrs["type"] = 'hickle'
 
         _dump(py_obj, h_root_group, **kwargs)
         h5f.close()
@@ -356,7 +358,7 @@ def create_dataset_lookup(py_obj):
         long: create_python_dtype_dataset,
         bool: create_python_dtype_dataset,
         complex: create_python_dtype_dataset,
-        NoneType: create_none_dataset,
+        None: create_none_dataset,
         np.ndarray: create_np_array_dataset,
         np.ma.core.MaskedArray: create_np_array_dataset,
         np.float16: create_np_dtype_dataset,
@@ -408,7 +410,7 @@ def create_hkl_group(py_obj, h_group, call_id=0):
 
     """
     h_subgroup = h_group.create_group('data_%i' % call_id)
-    h_subgroup.attrs["type"] = [str(type(py_obj))]
+    h_subgroup.attrs["type"] = str(type(py_obj))
     return h_subgroup
 
 
@@ -423,7 +425,7 @@ def create_listlike_dataset(py_obj, h_group, call_id=0, **kwargs):
     dtype = str(type(py_obj))
     obj = list(py_obj)
     d = h_group.create_dataset('data_%i' % call_id, data=obj, **kwargs)
-    d.attrs["type"] = [dtype]
+    d.attrs["type"] = dtype
 
 
 def create_np_dtype_dataset(py_obj, h_group, call_id=0, **kwargs):
@@ -435,7 +437,7 @@ def create_np_dtype_dataset(py_obj, h_group, call_id=0, **kwargs):
         call_id (int): index to identify object's relative location in the iterable.
     """
     d = h_group.create_dataset('data_%i' % call_id, data=py_obj, **kwargs)
-    d.attrs["type"] = ['np_dtype']
+    d.attrs["type"] = 'np_dtype'
     d.attrs["np_dtype"] = str(d.dtype)
 
 
@@ -449,7 +451,7 @@ def create_python_dtype_dataset(py_obj, h_group, call_id=0, **kwargs):
     """
     d = h_group.create_dataset('data_%i' % call_id, data=py_obj,
                                dtype=type(py_obj), **kwargs)
-    d.attrs["type"] = ['python_dtype']
+    d.attrs["type"] = 'python_dtype'
     d.attrs['python_subdtype'] = str(type(py_obj))
 
 
@@ -462,10 +464,10 @@ def create_dict_dataset(py_obj, h_group, call_id=0, **kwargs):
         call_id (int): index to identify object's relative location in the iterable.
     """
     h_dictgroup = h_group.create_group('data_%i' % call_id)
-    h_dictgroup.attrs["type"] = ['dict']
+    h_dictgroup.attrs["type"] = 'dict'
     for key, py_subobj in py_obj.items():
         h_subgroup = h_dictgroup.create_group(key)
-        h_subgroup.attrs["type"] = ['dict_item']
+        h_subgroup.attrs["type"] = 'dict_item'
         _dump(py_subobj, h_subgroup, call_id=0, **kwargs)
 
 
@@ -481,11 +483,11 @@ def create_np_array_dataset(py_obj, h_group, call_id=0, **kwargs):
         d = h_group.create_dataset('data_%i' % call_id, data=py_obj, **kwargs)
         #m = h_group.create_dataset('mask_%i' % call_id, data=py_obj.mask, **kwargs)
         m = h_group.create_dataset('data_%i_mask' % call_id, data=py_obj.mask, **kwargs)
-        d.attrs["type"] = ['ndarray_masked_data']
-        m.attrs["type"] = ['ndarray_masked_mask']
+        d.attrs["type"] = 'ndarray_masked_data'
+        m.attrs["type"] = 'ndarray_masked_mask'
     else:
         d = h_group.create_dataset('data_%i' % call_id, data=py_obj, **kwargs)
-        d.attrs["type"] = ['ndarray']
+        d.attrs["type"] = 'ndarray'
 
 
 def create_sparse_dataset(py_obj, h_group, call_id=0, **kwargs):
@@ -509,11 +511,11 @@ def create_sparse_dataset(py_obj, h_group, call_id=0, **kwargs):
     elif isinstance(py_obj, type(sparse.bsr_matrix([0]))):
         type_str = 'bsr'
 
-    h_sparsegroup.attrs["type"] = ['%s_matrix' % type_str]
-    data.attrs["type"] = ["%s_matrix_data" % type_str]
-    indices.attrs["type"] = ["%s_matrix_indices" % type_str]
-    indptr.attrs["type"] = ["%s_matrix_indptr" % type_str]
-    shape.attrs["type"] = ["%s_matrix_shape" % type_str]
+    h_sparsegroup.attrs["type"] = '%s_matrix' % type_str
+    data.attrs["type"] = "%s_matrix_data" % type_str
+    indices.attrs["type"] = "%s_matrix_indices" % type_str
+    indptr.attrs["type"] = "%s_matrix_indptr" % type_str
+    shape.attrs["type"] = "%s_matrix_shape" % type_str
 
 
 
@@ -527,12 +529,12 @@ def create_stringlike_dataset(py_obj, h_group, call_id=0, **kwargs):
     """
     if isinstance(py_obj, str):
         d = h_group.create_dataset('data_%i' % call_id, data=[py_obj], **kwargs)
-        d.attrs["type"] = ['string']
+        d.attrs["type"] = 'string'
     else:
         dt = h5.special_dtype(vlen=unicode)
         dset = h_group.create_dataset('data_%i' % call_id, shape=(1, ), dtype=dt, **kwargs)
         dset[0] = py_obj
-        dset.attrs['type'] = ['unicode']
+        dset.attrs['type'] = 'unicode'
 
 
 def create_none_dataset(py_obj, h_group, call_id=0, **kwargs):
@@ -544,7 +546,7 @@ def create_none_dataset(py_obj, h_group, call_id=0, **kwargs):
         call_id (int): index to identify object's relative location in the iterable.
     """
     d = h_group.create_dataset('data_%i' % call_id, data=[0], **kwargs)
-    d.attrs["type"] = ['none']
+    d.attrs["type"] = 'none'
 
 
 def no_match(py_obj, h_group, call_id=0, **kwargs):
@@ -559,7 +561,7 @@ def no_match(py_obj, h_group, call_id=0, **kwargs):
 
     pickled_obj = cPickle.dumps(py_obj)
     d = h_group.create_dataset('data_%i' % call_id, data=[pickled_obj])
-    d.attrs["type"] = ['pickle']
+    d.attrs["type"] = 'pickle'
 
     warnings.warn("%s type not understood, data have been "
                   "serialized" % type(py_obj))
